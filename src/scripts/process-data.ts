@@ -1,20 +1,25 @@
-'use strict';
+import { jsesc, uniq } from "../deps.ts";
+import { EntityCollection } from "../types.ts";
+import { regexAsciiWhitelist } from "./ascii-whitelist-regex.ts";
+import { regexAstralSymbol } from "./astral-symbol-regex.ts";
+import { regexBmpWhitelist } from "./bmp-whitelist-regex.ts";
+import { regexEncodeNonAscii } from "./encode-non-ascii-regex.ts";
+import { regexInvalidRawCodePoints } from "./invalid-code-points-regex.ts";
+import { regexLegacyReference } from "./legacy-reference-regex.ts";
+import { regexNamedReference  } from "./named-reference-regex.ts";
+import { invalidCodePointsString } from "./invalid-code-points-string.ts";
 
-const fs = require('fs');
-const jsesc = require('jsesc');
-const _ = require('lodash');
-// const sortObject = require('sort-object');
+import data from '../data/entities.json';
 
 // https://html.spec.whatwg.org/entities.json
-const data = require('../data/entities.json');
 
 const encodeMap = {};
-let encodeMultipleSymbols = [];
-let encodeSingleCodePoints = [];
+let encodeMultipleSymbols: string[] = [];
+let encodeSingleCodePoints: number[] = [];
 const decodeMap = {};
 const decodeMapLegacy = {};
 
-_.forOwn(data, function (value, key) {
+Object.entries(data as EntityCollection).forEach(([key, value]) => {
 	const referenceWithLeadingAmpersand = key;
 	const referenceWithoutLeadingAmpersand = referenceWithLeadingAmpersand.replace(/^&/, '');
 	const referenceOnly = referenceWithoutLeadingAmpersand.replace(/;$/, '');
@@ -53,17 +58,15 @@ _.forOwn(data, function (value, key) {
 	}
 });
 
-encodeMultipleSymbols = _.uniq(
-	encodeMultipleSymbols.sort(), // Sort strings by code point value.
-	true
+encodeMultipleSymbols = uniq(
+	encodeMultipleSymbols.sort() // Sort strings by code point value.
+	);
+
+encodeSingleCodePoints = uniq(
+	encodeSingleCodePoints.sort() // Sort numerically.
 );
 
-encodeSingleCodePoints = _.uniq(
-	_.sortBy(encodeSingleCodePoints), // Sort numerically.
-	true
-);
-
-const legacyReferences = _.keys(decodeMapLegacy).sort(function (a, b) {
+const legacyReferences = Object.keys(decodeMapLegacy).sort(function (a, b) {
 	// Optimize the regular expression that will be generated based on this data
 	// by sorting the references by length in descending order.
 	if (a.length > b.length) {
@@ -87,7 +90,9 @@ const writeJSON = function (fileName, object) {
 		'compact': false,
 		'json': true
 	});
-	fs.writeFileSync(fileName, json + '\n');
+	const encoder = new TextEncoder();
+ const data = encoder.encode(`${json}\n`);
+	new Deno.writeFileSync(fileName, data, { create: true});
 };
 
 /**
@@ -95,7 +100,7 @@ const writeJSON = function (fileName, object) {
  * @param {?} object The object to be sorted
  * @returns {?} Sorted copy of the supplied object
  */
-const sortObj = (object) => {
+function sortObj(object) {
 	const keys = Object.keys(object).sort( (a, b) => a.toLowerCase().localeCompare(b.toLowerCase()) );
 	let ret = {};
 	keys.forEach((key) => {
@@ -104,9 +109,17 @@ const sortObj = (object) => {
 	return ret;
 }
 
-writeJSON('data/decode-map.json', sortObj(decodeMap));
-writeJSON('data/decode-map-legacy.json', sortObj(decodeMapLegacy));
-writeJSON('data/decode-legacy-named-references.json', legacyReferences);
-writeJSON('data/encode-map.json', sortObj(encodeMap));
-writeJSON('data/encode-paired-symbols.json', encodeMultipleSymbols);
-writeJSON('data/encode-lone-code-points.json', encodeSingleCodePoints);
+writeJSON('./src/data/decode-map.json', sortObj(decodeMap));
+writeJSON('./src/data/decode-map-legacy.json', sortObj(decodeMapLegacy));
+writeJSON('./src/data/decode-legacy-named-references.json', legacyReferences);
+writeJSON('./src/data/encode-map.json', sortObj(encodeMap));
+writeJSON('./src/data/encode-paired-symbols.json', encodeMultipleSymbols);
+writeJSON('./src/data/encode-lone-code-points.json', encodeSingleCodePoints);
+writeJSON('./src/data/regex-ascii-whitelist.json', regexAsciiWhitelist);
+writeJSON('./src/data/regex-astral-symbol.json', regexAstralSymbol);
+writeJSON('./src/data/regex-bmp-whitelist.json', regexBmpWhitelist);
+writeJSON('./src/data/regex-encode-non-ascii.json', regexEncodeNonAscii);
+writeJSON('./src/data/regex-invalid-raw-code-points.json', regexInvalidRawCodePoints);
+writeJSON('./src/data/regex-legacy-reference.json', regexLegacyReference);
+writeJSON('./src/data/regex-named-reference.json', regexNamedReference);
+writeJSON('./src/data/invalid-code-points-string.json', invalidCodePointsString);

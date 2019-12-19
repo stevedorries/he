@@ -1,4 +1,4 @@
-'use strict';
+import  overrides  from "../data/decode-code-points-overrides.json";
 
 const regenerate = require('regenerate');
 
